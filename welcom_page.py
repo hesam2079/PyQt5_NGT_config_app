@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt5.QtCore import Qt
-import config
+from config import main
 import pin_status
 
 class WelcomePage(QWidget):
@@ -37,7 +37,7 @@ class WelcomePage(QWidget):
         pin_status_button.clicked.connect(self.open_pin_status_ui)
 
     def open_config_ui(self):
-        config
+        main
 
     def open_pin_status_ui(self):
         pin_status

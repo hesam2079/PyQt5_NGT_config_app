@@ -33,7 +33,7 @@ class config(QMainWindow):
         self.data = {
             "ssid": self.ui.ssid_textfield.text(),
             "password": self.ui.password_textfield.text(),
-            "mqtt_ip": self.ui.mqtt_ip_textfield.text(),
+            "mqtt_server": self.ui.mqtt_ip_textfield.text(),
             "mqtt_username": self.ui.mqtt_username_textfield.text(),
             "mqtt_password": self.ui.mqtt_password_textfield.text(),
             "LB": self.ui.lorawan_baud_rate_textfield.text(),
@@ -84,18 +84,20 @@ class config(QMainWindow):
 
     # Function to handle the send button click event
     def submit_button_clicked(self):
-        self.save_data_json()
-        QMessageBox.information(self, "submitting", "Precess start Successfully!")
-        # Convert the data to a JSON string
-        json_data = json.dumps(self.data)
         try:
+            self.save_data_json()
+            QMessageBox.information(self, "submitting", "Precess start Successfully!")
+            # Convert the data to a JSON string
+            json_data = json.dumps(self.data)
+            connection_mode = {"connection_mode": "pin_status"}
+            json_connection_mode = json.dumps(connection_mode)
             # Configure the serial connection
             port = str(self.ui.com_port_combobox.currentText())
-            ser = serial.Serial(port, 11520, timeout=0.1)
-            ser.write(bytes(json_data, ('utf-8')))
+            ser = serial.Serial(port, 9600, timeout=11)
+            ser.write(bytes(json_connection_mode, 'utf-8'))
+            time.sleep(10)
+            ser.write(bytes(json_data, 'utf-8'))
             time.sleep(0.05)
-            print("data is: ", json_data.encode())
-            ser.close()
             QMessageBox.information(self, "Success", "Config submit successfully!")
         except serial.SerialException as e:
             QMessageBox.information(self, "Serial Error", f"Serial Exception Error: {str(e)}")
