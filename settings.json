@@ -1,1 +1,1 @@
-{"ssid": "Z500", "password": "13770224", "mqtt_server": "", "mqtt_username": "", "mqtt_password": "", "LB": "", "SignalBandwidth": "", "SpreadingFactor": "", "SyncWord": "", "CodingRate4": "", "TxPower": "", "Gain": ""}
+{"ssid": "Z500", "password": "13770224", "mqtt_ip": "", "mqtt_username": "", "mqtt_password": "", "LB": "", "SignalBandwidth": "", "SpreadingFactor": "", "SyncWord": "", "CodingRate4": "", "TxPower": "", "Gain": ""}

@@ -31,10 +31,9 @@ class config(QMainWindow):
     # Function for save data fields to class data attribute
     def save_data_json(self):
         self.data = {
-            "connection_mode": "config",
             "ssid": self.ui.ssid_textfield.text(),
             "password": self.ui.password_textfield.text(),
-            "mqtt_server": self.ui.mqtt_ip_textfield.text(),
+            "mqtt_ip": self.ui.mqtt_ip_textfield.text(),
             "mqtt_username": self.ui.mqtt_username_textfield.text(),
             "mqtt_password": self.ui.mqtt_password_textfield.text(),
             "LB": self.ui.lorawan_baud_rate_textfield.text(),
@@ -91,10 +90,11 @@ class config(QMainWindow):
         json_data = json.dumps(self.data)
         try:
             # Configure the serial connection
-            ser = serial.Serial(self.ui.com_port_combobox.currentText(), 9600)
-            time.sleep(2)  # Allow time for the connection to be established
-            ser.write(json_data.encode('utf-8'))
-            print("data is: ", json_data.encode('utf-8'))
+            port = str(self.ui.com_port_combobox.currentText())
+            ser = serial.Serial(port, 11520, timeout=0.1)
+            ser.write(bytes(json_data, ('utf-8')))
+            time.sleep(0.05)
+            print("data is: ", json_data.encode())
             ser.close()
             QMessageBox.information(self, "Success", "Config submit successfully!")
         except serial.SerialException as e:

@@ -1,7 +1,7 @@
 import serial
 
 # Specify the COM port number
-com_port = 'COM9'
+com_port = 'COM6'
 
 # Configure the serial port
 port = serial.Serial(com_port, baudrate=9600, timeout=1)
