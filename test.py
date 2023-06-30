@@ -1,43 +1,44 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QTabWidget
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTabWidget
 
-class MainWindow(QMainWindow):
+class MainWidget(QWidget):
     def __init__(self):
         super().__init__()
 
-        # Create the main widget and layout
-        self.central_widget = QWidget(self)
-        self.layout = QVBoxLayout(self.central_widget)
+        # Create the main layout (Horizontal layout)
+        self.layout_main = QHBoxLayout()
+        self.setLayout(self.layout_main)
 
-        # Create the tab widget
-        self.tab_widget = QTabWidget(self.central_widget)
-        self.layout.addWidget(self.tab_widget)
+        # Add your logo
+        logo_label = QLabel("Your Logo Here")
+        self.layout_main.addWidget(logo_label)
 
-        # Add design files as tabs
-        self.add_design_tab("Design 1", "pin_status_ui.py")
-        self.add_design_tab("Design 2", "config_ui.py")
+        # Create a QTabWidget to hold your layouts
+        tab_widget = QTabWidget()
 
-        # Set the central widget
-        self.setCentralWidget(self.central_widget)
+        # Create tab 1 and add self.layout_config to it
+        tab1 = QWidget()
+        layout_tab1 = QVBoxLayout(tab1)
+        layout_tab1.addLayout(self.layout_config)
+        tab_widget.addTab(tab1, "Tab 1")
 
-    def add_design_tab(self, title, file_path):
-        # Execute the code from the generated design file
-        with open(file_path, 'r') as file:
-            code = file.read()
-            exec(code, globals())
+        # Create tab 2 and add self.layout_pin_status to it
+        tab2 = QWidget()
+        layout_tab2 = QVBoxLayout(tab2)
+        layout_tab2.addLayout(self.layout_pin_status)
+        tab_widget.addTab(tab2, "Tab 2")
 
-        # Extract the desired widget instance
-        widget = globals().get("MainWidget")()
+        # Add the QTabWidget to the main layout
+        self.layout_main.addWidget(tab_widget)
 
-        # Add the widget to the tab
-        self.tab_widget.addTab(widget, title)
+# Replace `self.layout_config` and `self.layout_pin_status` with your actual layouts
+# self.layout_config = QVBoxLayout()  # Your layout 1
+# self.layout_pin_status = QVBoxLayout()  # Your layout 2
 
-# Create the application
-app = QApplication(sys.argv)
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
 
-# Create the main window
-window = MainWindow()
-window.show()
+    main_widget = MainWidget()
+    main_widget.show()
 
-# Run the event loop
-sys.exit(app.exec_())
+    sys.exit(app.exec_())

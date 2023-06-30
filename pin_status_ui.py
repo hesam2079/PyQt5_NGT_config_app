@@ -1,49 +1,35 @@
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout
-from PyQt5.QtGui import QColor
+# pin_status_ui.py
 
-class pin_status_ui(QWidget):
-    def __init__(self):
-        super().__init__()
+from PyQt5 import QtCore, QtGui, QtWidgets
 
-        self.pin_labels = {}
-        self.pin_status_labels = {}
+class Ui_MainWindow(object):
+    def setupUi(self, MainWindow):
+        MainWindow.setObjectName("MainWindow")
+        MainWindow.resize(400, 300)
+        self.centralwidget = QtWidgets.QWidget(MainWindow)
+        self.centralwidget.setObjectName("centralwidget")
+        self.verticalLayout = QtWidgets.QVBoxLayout(self.centralwidget)
+        self.verticalLayout.setObjectName("verticalLayout")
+        MainWindow.setCentralWidget(self.centralwidget)
+        self.menubar = QtWidgets.QMenuBar(MainWindow)
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 400, 21))
+        self.menubar.setObjectName("menubar")
+        MainWindow.setMenuBar(self.menubar)
+        self.statusbar = QtWidgets.QStatusBar(MainWindow)
+        self.statusbar.setObjectName("statusbar")
+        MainWindow.setStatusBar(self.statusbar)
 
-        layout = QVBoxLayout()
-        self.setLayout(layout)
+        self.retranslateUi(MainWindow)
+        QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
-    def update_pins(self, pin_data):
-        layout = self.layout()
-        if layout is not None:
-            # Clear the existing layout
-            for i in reversed(range(layout.count())):
-                item = layout.itemAt(i)
-                layout.removeItem(item)
+    def retranslateUi(self, MainWindow):
+        _translate = QtCore.QCoreApplication.translate
+        MainWindow.setWindowTitle(_translate("MainWindow", "Pin Status"))
 
-        # Create new labels based on pin data
-        for pin, status in pin_data.items():
-            pin_label = QLabel(f"{pin}")
-            pin_status_label = QLabel(status)
-
-            # Apply custom styles to status labels
-            color = None
-            if status == "HIGH":
-                color = "green"
-            elif status == "LOW":
-                color = "red"
-            else:
-                # Customize the color for float status
-                color = "orange"
-
-            pin_status_label.setStyleSheet("QLabel { background-color: %s; color: white; padding: 5px; }" % color)
-
-            # Store the labels for later access
-            self.pin_labels[pin] = pin_label
-            self.pin_status_labels[pin] = pin_status_label
-
-            # Add the labels to the layout
-            pin_layout = QHBoxLayout()
-            pin_layout.addWidget(pin_label)
-            pin_layout.addWidget(pin_status_label)
-            layout.addLayout(pin_layout)
-
-        layout.addStretch()
+    def add_item_to_ui(self, key, value):
+        item_layout = QtWidgets.QHBoxLayout()
+        item_label = QtWidgets.QLabel(key)
+        item_value_label = QtWidgets.QLabel(value)
+        item_layout.addWidget(item_label)
+        item_layout.addWidget(item_value_label)
+        self.verticalLayout.addLayout(item_layout)

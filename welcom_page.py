@@ -1,52 +1,43 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton
 from PyQt5.QtCore import Qt
-from config import main
-import pin_status
 
 class WelcomePage(QWidget):
     def __init__(self):
         super().__init__()
+        self.pin_status_window = None
+        self.config_window = None
+        self.initUI()
+
+    def initUI(self):
         self.setWindowTitle('Welcome Page')
-        self.resize(400, 300)  # Set the size of the window
 
-        # Create and customize the welcome label
-        welcome_label = QLabel('Welcome to My App')
-        welcome_label.setStyleSheet('font-size: 24px; font-weight: bold;')
+        #welcome_label =
 
-        # Create buttons
-        config_button = QPushButton('Config')
-        pin_status_button = QPushButton('Pin Status')
+        button1 = QPushButton('Config', self)
+        button1.clicked.connect(self.launch_file1)
+        button1.setGeometry(50, 50, 200, 50)
 
-        # Create a layout for the buttons
-        button_layout = QHBoxLayout()
-        button_layout.addWidget(config_button)
-        button_layout.addWidget(pin_status_button)
+        button2 = QPushButton('Pin Status', self)
+        button2.clicked.connect(self.launch_file2)
+        button2.setGeometry(50, 120, 200, 50)
 
-        # Create a layout for the welcome page
-        layout = QVBoxLayout()
-        layout.addWidget(welcome_label)
-        layout.addStretch(1)  # Add some empty space
-        layout.addLayout(button_layout)
+        self.setGeometry(300, 300, 300, 200)
+        self.show()
 
-        # Set the layout for the welcome page
-        self.setLayout(layout)
+    def launch_file1(self):
+        self.close()
+        from config import Config
+        self.config_window = Config()
+        self.config_window.show()
 
-        # Connect button signals to slots
-        config_button.clicked.connect(self.open_config_ui)
-        pin_status_button.clicked.connect(self.open_pin_status_ui)
-
-    def open_config_ui(self):
-        main
-
-    def open_pin_status_ui(self):
-        pin_status
-
+    def launch_file2(self):
+        self.close()
+        from pin_status import PinStatus
+        self.pin_status_window = PinStatus()
+        self.pin_status_window.show()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-
     welcome_page = WelcomePage()
-    welcome_page.show()
-
     sys.exit(app.exec_())
