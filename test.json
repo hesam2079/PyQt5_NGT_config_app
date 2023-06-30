@@ -1,1 +1,14 @@
-{"cn_m": "config", "ssid": "Z500", "pass": "13770224", "mq_ser": "", "mq_po": "", "mq_un": "", "mq_pass": "", "ci": "", "fre": "", "SiBa": "", "SpFa": "", "SyWo": "", "CoR4": "", "TxP": "", "Ga": ""}
+
+            {"cn_m": "pin_status",
+            "digital_in":{"DI1": "1",
+                          "DI2": "0"
+            },
+            "digital_out":{
+                "DO1": "0",
+                "DO3": "1"
+            },
+            "analog_in":{
+                "AI1": "0.2",
+                "AI5": "0.25"
+            }
+        }

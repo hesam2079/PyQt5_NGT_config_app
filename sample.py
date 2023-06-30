@@ -14,7 +14,7 @@ text_font.setPointSize(10)  # Set the desired font size
 group_box_title_font = QFont()
 group_box_title_font.setPointSize(12)
 
-class ui(QMainWindow):
+class ui(QWidget):
     def __init__(self):
         super().__init__()
         self.data = {
@@ -34,14 +34,21 @@ class ui(QMainWindow):
             "TxP": "",
             "Ga": ""
         }
-        self.data_pin_status = {
+        self.data_pin_status = '''{
             "cn_m": "pin_status",
-            "DI1": "",
-            "DI2": "",
-            "DO1": "",
-            "DO2": "",
-            "AL": "",
-        }
+            "digital_in": {
+                "DI1": "1",
+                "DI2": "0"
+            },
+            "digital_out": {
+                "DO1": "0",
+                "DO3": "1"
+            },
+            "analog_in": {
+                "AI1": "0.2",
+                "AI5": "0.25"
+            }
+        }'''
         self.port_name = []
         self.device_name = []
 
@@ -53,13 +60,42 @@ class ui(QMainWindow):
         self.setWindowTitle("NGT App")
         self.setGeometry(100, 100, 900, 400)
 
+        # Create a QVBoxLayout to hold the logo and others
+        self.layout_main_v = QVBoxLayout()
+
         # Add logo, comboBox and refresh button to main layout
         logo_label = QLabel()
-        self.layout_main.addWidget(logo_label)
+        logo_pixmap = QPixmap("NGT_logo.png")  # Replace "logo.png" with the path to your logo image
+        # Resize the logo pixmap to a specific with and height
+        logo_pixmap = logo_pixmap.scaled(120, 120, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
+        logo_label.setPixmap(logo_pixmap)
+        self.layout_main_v.addWidget(logo_label)
+
+        # Add spacer item below the logo
+        spacer_item_logo = QSpacerItem(QSizePolicy.Minimum, 40)
+        self.layout_main_v.addItem(spacer_item_logo)
+
+        # Add QComboBox for options
+        self.combo_box = QComboBox()
+        self.combo_box.setFixedSize(120, 27)
+        self.combo_box.setFont(text_font)
+        self.layout_main_v.addWidget(self.combo_box)
+
+        # Add refresh button
+        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button.setFixedSize(120, 25)
+        self.refresh_button.setFont(text_font)
+        self.layout_main_v.addWidget(self.refresh_button)
+
+        # Add spacer below the buttons
+        spacer_item_buttons = QSpacerItem(120, 120, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        self.layout_main_v.addItem(spacer_item_buttons)
+
+        # Add layout_main_v to layout_main
+        self.layout_main.addLayout(self.layout_main_v)
 
         # Create the QTabWidget
         self.tabs = QTabWidget()
-        self.setCentralWidget(self.tabs)
 
         # Create the first tab
         self.tab1 = QWidget()
@@ -76,49 +112,10 @@ class ui(QMainWindow):
         self.layout_pin_status = QHBoxLayout(self.tab2)
 
         # Config page
-        for i in range(1, 6):
+        for i in range(2, 6):
             group_box = QGroupBox()
             group_box.setFont(group_box_title_font)
             frame = QFrame()
-
-            '''if i == 1:
-                layout = QVBoxLayout(frame)
-
-                # Add a logo to Group 1
-                frame.setFrameShape(QFrame.NoFrame)
-                logo_label = QLabel()
-                logo_pixmap = QPixmap("NGT_logo.png")  # Replace "logo.png" with the path to your logo image
-                # Resize the logo pixmap to a specific with and height
-                logo_pixmap = logo_pixmap.scaled(120, 120, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
-                logo_label.setPixmap(logo_pixmap)
-                layout.addWidget(logo_label)
-
-                # Add spacer item below the logo
-                spacer_item_logo = QSpacerItem(QSizePolicy.Minimum, 40)
-                layout.addItem(spacer_item_logo)
-
-                # Add QComboBox for options
-                self.combo_box_config = QComboBox()
-                self.combo_box_config.setFixedSize(120,27)
-                self.combo_box_config.setFont(text_font)
-                layout.addWidget(self.combo_box_config)
-
-                # Add refresh button
-                self.refresh_button_config = QPushButton("Refresh")
-                self.refresh_button_config.setFixedSize(120, 25)
-                self.refresh_button_config.setFont(text_font)
-                layout.addWidget(self.refresh_button_config)
-
-                # Add spacer below the buttons
-                spacer_item_buttons = QSpacerItem(120, 120, QSizePolicy.Minimum, QSizePolicy.Expanding)
-                layout.addItem(spacer_item_buttons)
-
-                # Customize the group box layout
-                group_box.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-                group_box.setMinimumWidth(frame.sizeHint().width())
-                group_box.setStyleSheet("QGroupBox { border: 0; }")  # Remove the frame around Group 1
-
-                group_box.setLayout(layout)'''
 
             if i == 2:
                 layout = QVBoxLayout(frame)
@@ -291,57 +288,25 @@ class ui(QMainWindow):
             self.layout_config.addWidget(group_box)
 
         # Pin Status Page
-        for i in range(1, 6):
+        for i in range(2, 6):
             group_box = QGroupBox()
             group_box.setFont(group_box_title_font)
             frame = QFrame()
 
-            '''if i == 1:
-                layout = QVBoxLayout(frame)
-
-                # Add a logo to Group 1
-                frame.setFrameShape(QFrame.NoFrame)
-                logo_label = QLabel()
-                logo_pixmap = QPixmap("NGT_logo.png")  # Replace "logo.png" with the path to your logo image
-                # Resize the logo pixmap to a specific with and height
-                logo_pixmap = logo_pixmap.scaled(120, 120, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
-                logo_label.setPixmap(logo_pixmap)
-                layout.addWidget(logo_label)
-
-                # Add spacer item below the logo
-                spacer_item_logo = QSpacerItem(QSizePolicy.Minimum, 40)
-                layout.addItem(spacer_item_logo)
-
-                # Add QComboBox for options
-                self.combo_box_pin_status = QComboBox()
-                self.combo_box_pin_status.setFixedSize(120, 27)
-                self.combo_box_pin_status.setFont(text_font)
-                layout.addWidget(self.combo_box_pin_status)
-
-                # Add refresh button
-                self.refresh_button_pin_status = QPushButton("Refresh")
-                self.refresh_button_pin_status.setFixedSize(120, 25)
-                self.refresh_button_pin_status.setFont(text_font)
-                layout.addWidget(self.refresh_button_pin_status)
-
-                # Add spacer below the buttons
-                spacer_item = QSpacerItem(120, 120, QSizePolicy.Minimum, QSizePolicy.Expanding)
-                layout.addItem(spacer_item)
-
-                group_box.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-                group_box.setMinimumWidth(frame.sizeHint().width())
-                group_box.setStyleSheet("QGroupBox { border: 0; }")  # Remove the frame around Group 1
-
-                group_box.setLayout(layout)'''
-
             if i == 2:
                 layout = QVBoxLayout(frame)
 
-                spacer_item = QSpacerItem(120, 120, QSizePolicy.Minimum, QSizePolicy.Expanding)
-                layout.addItem(spacer_item)
+                data = json.loads(self.data_pin_status)
+                if "digital_in" in data:
+                    digital_in_data = data["digital_in"]
 
+
+
+                    for key, value in digital_in_data.items():
+                        label = QLabel(f"{key}: {value}")
+                        layout.addWidget(label)
+                group_box = QGroupBox("Digital In")
                 group_box.setLayout(layout)
-                group_box.setTitle("Digital Input")
 
             if i == 3:
                 layout = QVBoxLayout(frame)
@@ -368,10 +333,14 @@ class ui(QMainWindow):
                 self.save_button_pin = QPushButton("Save")
                 self.save_button_pin.setFixedSize(105, 25)
                 self.save_button_pin.setFont(text_font)
+                self.load_button_pin = QPushButton("Load")
+                self.load_button_pin.setFixedSize(105, 25)
+                self.load_button_pin.setFont(text_font)
                 self.request_button = QPushButton("Request")
                 self.request_button.setFixedSize(105, 25)
                 self.request_button.setFont(text_font)
                 layout.addWidget(self.save_button_pin)
+                layout.addWidget(self.load_button_pin)
                 layout.addWidget(self.request_button)
 
                 # Add spacer below the buttons
@@ -417,18 +386,16 @@ class ui(QMainWindow):
             self.layout_pin_status.addWidget(group_box)
 
         self.layout_main.addWidget(self.tabs)
-'''
+
         # Buttons click handler
         self.save_button_config.clicked.connect(self.save_button_config_clicked)
         self.load_button_config.clicked.connect(self.load_button_config_clicked)
-        #self.refresh_button_config.clicked.connect(self.refresh_button_clicked)
-        #self.refresh_button_pin_status.clicked.connect(self.refresh_button_clicked)
+        self.refresh_button.clicked.connect(self.refresh_button_clicked)
         self.submit_button_config.clicked.connect(self.submit_button_config_clicked)
         self.save_button_pin.clicked.connect(self.save_button_pin_clicked)
+        self.load_button_pin.clicked.connect(self.load_button_pin_clicked)
         self.request_button.clicked.connect(self.request_button_clicked)
         self.auto_request_button.clicked.connect(self.auto_request_button_clicked)
-        #self.combo_box_pin_status.currentIndexChanged.connect(self.combo_box_current_item)
-        #self.combo_box_pin_status.currentIndexChanged.connect(self.combo_box_current_item)
 
     def save_data_json(self):
         self.data = {
@@ -492,7 +459,7 @@ class ui(QMainWindow):
             # Convert the data to a JSON string
             json_data = json.dumps(self.data)
             # Configure the serial connection
-            port = str(self.combo_box_config.currentText())
+            port = str(self.combo_box.currentText())
             ser = serial.Serial(port, 115200, timeout=0.1)
             ser.write(bytes(json_data, 'utf-8'))
             time.sleep(0.05)
@@ -507,11 +474,9 @@ class ui(QMainWindow):
             # Show the refreshing message pop-up
             QMessageBox.information(self, "Refresh COM ports", "Refreshing start successfully!")
             self.refresh_data()
-            self.combo_box_config.clear()
-            self.combo_box_pin_status.clear()
+            self.combo_box.clear()
             for port in self.port_name:
-                self.combo_box_config.addItem(f"{port}")
-                self.combo_box_pin_status.addItem((f"{port}"))
+                self.combo_box.addItem(f"{port}")
             QMessageBox.information(self, "Refreshing finished", "Refresh process finished")
         except Exception as e:
             QMessageBox.information(self, "Error", f"Exception Error: {str(e)}")
@@ -531,18 +496,26 @@ class ui(QMainWindow):
                 self.port_name.append(port.device)
                 self.device_name.append(port.description)
 
-    def combo_box_current_item(self):
-        if self.combo_box_pin_status.currentIndexChanged:
-            self.combo_box_pin_status.setCurrentText(self.combo_box_config.currentText())
-        else:
-            self.combo_box_config.setCurrentText(self.combo_box_pin_status.currentText())
-
     def save_pin_status_data_json(self):
-        print("pin status data saved!")
+        self.data_pin_status = {
+
+        }
 
     def save_button_pin_clicked(self):
         self.save_pin_status_data_json()
-        print("save button clicked!")
+        file_path, _ = QFileDialog.getSaveFileName(self, 'Save File', '', 'json files (*.json)')
+
+        if file_path:
+            # Save the data to a JSON file
+            try:
+                with open(file_path, "w") as file:
+                    json.dump(self.data_pin_status, file)
+                QMessageBox.information(self, "Success", "Data saved successfully!")
+            except Exception as e:
+                QMessageBox.warning(self, "Error", f"Failed to save data: {str(e)}")
+
+    def load_button_pin_clicked(self):
+        print("data loaded")
 
     def request_button_clicked(self):
         print("request button clicked!")
@@ -557,7 +530,7 @@ class ui(QMainWindow):
             print("sending Request is stop!")
             self.auto_request_button.setText("Run")
 
-'''
+
 if __name__ == "__main__":
     app = QApplication([])
     window = ui()
