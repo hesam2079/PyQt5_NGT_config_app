@@ -1,11 +1,13 @@
 import json
-import sys
+import threading
 import time
+
 from serial.tools import list_ports
 import serial
 from PyQt5.QtGui import QPixmap, QFont
-from PyQt5.QtWidgets import QApplication, QMainWindow, QTabWidget, QLineEdit, QWidget, QVBoxLayout, QHBoxLayout, QLabel, \
+from PyQt5.QtWidgets import QApplication, QTabWidget, QLineEdit, QWidget, QVBoxLayout, QHBoxLayout, QLabel, \
     QGroupBox, QFrame, QPushButton, QSpacerItem, QSizePolicy, QComboBox, QFileDialog, QMessageBox
+from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5 import QtCore
 
 text_font = QFont()  # Get the existing font from the label
@@ -13,6 +15,7 @@ text_font.setPointSize(10)  # Set the desired font size
 
 group_box_title_font = QFont()
 group_box_title_font.setPointSize(12)
+
 
 class ui(QWidget):
     def __init__(self):
@@ -34,30 +37,30 @@ class ui(QWidget):
             "TxP": "",
             "Ga": ""
         }
-        self.data_pin_status = '''{
-            "cn_m": "pin_status",
-            "digital_in": {
-                "DI1": "1",
-                "DI2": "0"
-            },
-            "digital_out": {
-                "DO1": "0",
-                "DO3": "1"
-            },
-            "analog_in": {
-                "AI1": "0.2",
-                "AI5": "0.25"
-            }
-        }'''
+        self.data_pin_status = None
         self.port_name = []
         self.device_name = []
+        self.digital_in_labels = []
+        self.digital_out_labels = []
+        self.analog_in_labels = []
+        self.serial_port = None
+        self.create_main_layout()
+        self.create_config_page()
+        self.create_pin_status_page()
+        self.buttons_handler()
+        self.serial_communication = None
+        self.serial_communication_config = None
+        self.is_sending_pin = False
 
+    '''========================= layout creator functions ======================='''
+
+    def create_main_layout(self):
         # Create main layout
         self.layout_main = QHBoxLayout()
         self.setLayout(self.layout_main)
 
         # Set window properties
-        self.setWindowTitle("NGT App")
+        self.setWindowTitle("Config App")
         self.setGeometry(100, 100, 900, 400)
 
         # Create a QVBoxLayout to hold the logo and others
@@ -69,7 +72,13 @@ class ui(QWidget):
         # Resize the logo pixmap to a specific with and height
         logo_pixmap = logo_pixmap.scaled(120, 120, QtCore.Qt.AspectRatioMode.KeepAspectRatio)
         logo_label.setPixmap(logo_pixmap)
-        self.layout_main_v.addWidget(logo_label)
+        #self.layout_main_v.addWidget(logo_label)
+
+        # Add Qlabel of for insert some information
+        title_label = QLabel("COM Port")
+        title_label.setAlignment(QtCore.Qt.AlignCenter)
+        title_label.setFont(group_box_title_font)
+        self.layout_main_v.addWidget(title_label)
 
         # Add spacer item below the logo
         spacer_item_logo = QSpacerItem(QSizePolicy.Minimum, 40)
@@ -86,6 +95,15 @@ class ui(QWidget):
         self.refresh_button.setFixedSize(120, 25)
         self.refresh_button.setFont(text_font)
         self.layout_main_v.addWidget(self.refresh_button)
+
+        # Add spacer item below the logo
+        self.layout_main_v.addItem(spacer_item_logo)
+
+        # Add input editLine for request time
+        self.delay_time = QLineEdit()
+        self.delay_time.setPlaceholderText('communication Delay')
+        self.delay_time.setFixedSize(120, 25)
+        self.layout_main_v.addWidget(self.delay_time)
 
         # Add spacer below the buttons
         spacer_item_buttons = QSpacerItem(120, 120, QSizePolicy.Minimum, QSizePolicy.Expanding)
@@ -111,6 +129,7 @@ class ui(QWidget):
         # Create a QHBoxLayout for tab2
         self.layout_pin_status = QHBoxLayout(self.tab2)
 
+    def create_config_page(self):
         # Config page
         for i in range(2, 6):
             group_box = QGroupBox()
@@ -287,115 +306,113 @@ class ui(QWidget):
 
             self.layout_config.addWidget(group_box)
 
-        # Pin Status Page
-        for i in range(2, 6):
-            group_box = QGroupBox()
-            group_box.setFont(group_box_title_font)
-            frame = QFrame()
+    def create_pin_status_page(self):
+        # Pin Status Page create pin status group boxes
+        self.group_box_pin = QGroupBox("Pins Status")
+        self.group_box_pin.setFont(group_box_title_font)
+        self.group_box_pin_layout = QHBoxLayout()
+        self.group_box_pin.setLayout(self.group_box_pin_layout)
+        self.layout_pin_status.addWidget(self.group_box_pin)
 
-            if i == 2:
-                layout = QVBoxLayout(frame)
+        # Create buttons for pin status tab
+        layout_buttons = QVBoxLayout()
+        group_box_buttons = QGroupBox()
+        group_box_buttons.setFont(group_box_title_font)
 
-                data = json.loads(self.data_pin_status)
-                if "digital_in" in data:
-                    digital_in_data = data["digital_in"]
+        self.save_button_pin = QPushButton("Save")
+        self.save_button_pin.setFixedSize(105, 25)
+        self.save_button_pin.setFont(text_font)
 
+        self.load_button_pin = QPushButton("Load")
+        self.load_button_pin.setFixedSize(105, 25)
+        self.load_button_pin.setFont(text_font)
 
+        self.request_button = QPushButton("Request")
+        self.request_button.setFixedSize(105, 25)
+        self.request_button.setFont(text_font)
+        layout_buttons.addWidget(self.save_button_pin)
+        layout_buttons.addWidget(self.load_button_pin)
+        layout_buttons.addWidget(self.request_button)
 
-                    for key, value in digital_in_data.items():
-                        label = QLabel(f"{key}: {value}")
-                        layout.addWidget(label)
-                group_box = QGroupBox("Digital In")
-                group_box.setLayout(layout)
+        # Add spacer below the buttons
+        spacer_item = QSpacerItem(20, 40)
+        layout_buttons.addItem(spacer_item)
 
-            if i == 3:
-                layout = QVBoxLayout(frame)
+        # Add Auto Request label
+        auto_request_label = QLabel("Auto Request")
+        layout_buttons.addWidget(auto_request_label)
 
-                spacer_item = QSpacerItem(120, 120, QSizePolicy.Minimum, QSizePolicy.Expanding)
-                layout.addItem(spacer_item)
+        # Add spacer
+        spacer_item_auto_request_time = QSpacerItem(0, 10)
+        layout_buttons.addItem(spacer_item_auto_request_time)
 
-                group_box.setLayout(layout)
-                group_box.setTitle("Analog Input")
+        # Add label for input time
+        auto_request_input_label = QLabel("Time")
+        auto_request_input_label.setFont(text_font)
+        layout_buttons.addWidget(auto_request_input_label)
 
-            if i == 4:
-                layout = QVBoxLayout(frame)
+        # Add input field
+        self.auto_request_time = QLineEdit()
+        self.auto_request_time.setFont(text_font)
+        self.auto_request_time.setPlaceholderText("Min: 5 Sec")
+        self.auto_request_time.setFixedSize(105, 25)
+        layout_buttons.addWidget(self.auto_request_time)
 
-                spacer_item = QSpacerItem(120, 120, QSizePolicy.Minimum, QSizePolicy.Expanding)
-                layout.addItem(spacer_item)
+        # Add auto request run button
+        self.auto_request_button_run = QPushButton("Run")
+        self.auto_request_button_run.setFont(text_font)
+        layout_buttons.addWidget(self.auto_request_button_run)
 
-                group_box.setLayout(layout)
-                group_box.setTitle("Digital Output")
+        # Add auto request run button
+        self.auto_request_button_stop = QPushButton("Stop")
+        self.auto_request_button_stop.setFont(text_font)
+        layout_buttons.addWidget(self.auto_request_button_stop)
+        self.auto_request_button_stop.setEnabled(False)
 
-            if i == 5:
-                layout = QVBoxLayout(frame)
+        # Add spacer below Auto request
+        spacer_item_auto_request = QSpacerItem(0, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        layout_buttons.addItem(spacer_item_auto_request)
 
-                # Create buttons for Group 6
-                self.save_button_pin = QPushButton("Save")
-                self.save_button_pin.setFixedSize(105, 25)
-                self.save_button_pin.setFont(text_font)
-                self.load_button_pin = QPushButton("Load")
-                self.load_button_pin.setFixedSize(105, 25)
-                self.load_button_pin.setFont(text_font)
-                self.request_button = QPushButton("Request")
-                self.request_button.setFixedSize(105, 25)
-                self.request_button.setFont(text_font)
-                layout.addWidget(self.save_button_pin)
-                layout.addWidget(self.load_button_pin)
-                layout.addWidget(self.request_button)
+        # Customize group box
+        group_box_buttons.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        group_box_buttons.setTitle("Save / Request")
 
-                # Add spacer below the buttons
-                spacer_item = QSpacerItem(20, 40)
-                layout.addItem(spacer_item)
+        group_box_buttons.setLayout(layout_buttons)
 
-                # Add Auto Request label
-                auto_request_label = QLabel("Auto Request")
-                layout.addWidget(auto_request_label)
-
-                # Add spacer
-                spacer_item_auto_request_time = QSpacerItem(0, 10)
-                layout.addItem(spacer_item_auto_request_time)
-
-                # Add label for input time
-                auto_request_input_label = QLabel("Time")
-                auto_request_input_label.setFont(text_font)
-                layout.addWidget(auto_request_input_label)
-
-                # Add input field
-                self.auto_request_time = QLineEdit()
-                self.auto_request_time.setFont(text_font)
-                self.auto_request_time.setPlaceholderText("Min: 5 Sec")
-                self.auto_request_time.setFixedSize(105, 25)
-                layout.addWidget(self.auto_request_time)
-
-                # Add auto request run button
-                self.auto_request_button = QPushButton("Run")
-                self.auto_request_button.setFont(text_font)
-                layout.addWidget(self.auto_request_button)
-
-                # Add spacer below Auto request
-                spacer_item_auto_request = QSpacerItem(0, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
-                layout.addItem(spacer_item_auto_request)
-
-                # Customize group box
-                group_box.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-                group_box.setMinimumWidth(frame.sizeHint().width())
-                group_box.setTitle("Save / Request")
-
-                group_box.setLayout(layout)
-
-            self.layout_pin_status.addWidget(group_box)
+        self.layout_pin_status.addWidget(group_box_buttons)
 
         self.layout_main.addWidget(self.tabs)
 
+    def buttons_handler(self):
         # Buttons click handler
-        self.save_button_config.clicked.connect(self.save_button_config_clicked)
-        self.load_button_config.clicked.connect(self.load_button_config_clicked)
-        self.refresh_button.clicked.connect(self.refresh_button_clicked)
-        self.submit_button_config.clicked.connect(self.submit_button_config_clicked)
-        self.save_button_pin.clicked.connect(self.save_button_pin_clicked)
-        self.load_button_pin.clicked.connect(self.load_button_pin_clicked)
-        self.request_button.clicked.connect(self.request_button_clicked)
-        self.auto_request_button.clicked.connect(self.auto_request_button_clicked)
+        self.save_button_config.clicked.connect(self.save_button_config_thread)
+        self.load_button_config.clicked.connect(self.load_button_config_thread)
+        self.refresh_button.clicked.connect(self.refresh_button_thread)
+        self.submit_button_config.clicked.connect(self.submit_button_config_thread)
+        self.save_button_pin.clicked.connect(self.save_button_pin_thread)
+        self.load_button_pin.clicked.connect(self.load_button_pin_thread)
+        self.request_button.clicked.connect(self.request_button_thread)
+        self.auto_request_button_run.clicked.connect(self.auto_request_button_run_thread)
+        self.auto_request_button_stop.clicked.connect(self.auto_request_button_stop_thread)
+
+    '''=========================== Buttons Handlers =============================='''
+
+    def refresh_com_ports(self):
+        self.port_name = []
+        self.device_name = []
+        # Your refreshing logic here
+        ports = list(serial.tools.list_ports.comports())
+        external_ports = []
+        for port in ports:
+            try:
+                external_ports.append(port)
+            except (OSError, serial.SerialException):
+                # If opening the port fails, it means there is no device connected to it
+                pass
+        if external_ports:
+            for port in external_ports:
+                self.port_name.append(port.device)
+                self.device_name.append(port.description)
 
     def save_data_json(self):
         self.data = {
@@ -450,30 +467,14 @@ class ui(QWidget):
                     self.tx_power_input.setText(self.data['TxP'])
                     self.gain_input.setText(self.data['Ga'])
                 except Exception as e:
-                    QMessageBox.information(self, "Loading Error", f"Exeption Error: {str(e)}")
-
-    def submit_button_config_clicked(self):
-        try:
-            self.save_data_json()
-            QMessageBox.information(self, "submitting", "Precess start Successfully!")
-            # Convert the data to a JSON string
-            json_data = json.dumps(self.data)
-            # Configure the serial connection
-            port = str(self.combo_box.currentText())
-            ser = serial.Serial(port, 115200, timeout=0.1)
-            ser.write(bytes(json_data, 'utf-8'))
-            time.sleep(0.05)
-            QMessageBox.information(self, "Success", "Config submit successfully!")
-        except serial.SerialException as e:
-            QMessageBox.information(self, "Serial Error", f"Serial Exception Error: {str(e)}")
-        except Exception as e:
-            QMessageBox.information(self, "Error", f"Exeption Error: {str(e)}")
+                    QMessageBox.information(self, "Loading Error", f"Exception Error: {str(e)}")
 
     def refresh_button_clicked(self):
+        self.combo_box.clear()
         try:
             # Show the refreshing message pop-up
             QMessageBox.information(self, "Refresh COM ports", "Refreshing start successfully!")
-            self.refresh_data()
+            self.refresh_com_ports()
             self.combo_box.clear()
             for port in self.port_name:
                 self.combo_box.addItem(f"{port}")
@@ -481,28 +482,7 @@ class ui(QWidget):
         except Exception as e:
             QMessageBox.information(self, "Error", f"Exception Error: {str(e)}")
 
-    def refresh_data(self):
-        # Your refreshing logic here
-        ports = list(serial.tools.list_ports.comports())
-        external_ports = []
-        for port in ports:
-            try:
-                external_ports.append(port)
-            except (OSError, serial.SerialException):
-                # If opening the port fails, it means there is no device connected to it
-                pass
-        if external_ports:
-            for port in external_ports:
-                self.port_name.append(port.device)
-                self.device_name.append(port.description)
-
-    def save_pin_status_data_json(self):
-        self.data_pin_status = {
-
-        }
-
     def save_button_pin_clicked(self):
-        self.save_pin_status_data_json()
         file_path, _ = QFileDialog.getSaveFileName(self, 'Save File', '', 'json files (*.json)')
 
         if file_path:
@@ -514,21 +494,238 @@ class ui(QWidget):
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Failed to save data: {str(e)}")
 
+    def refresh_pin_status_labels_serial_port(self, new_pin_status):
+        try:
+            self.data_pin_status = json.loads(new_pin_status)
+            while self.group_box_pin_layout.count() > 0:
+                widget = self.group_box_pin_layout.takeAt(0)
+                if widget.widget():
+                    widget.widget().deleteLater()
+            for key, value in self.data_pin_status.items():
+                if isinstance(value, dict):
+                    group_box_pin_sub = QGroupBox(key)
+                    group_box_pin_sub.setFont(group_box_title_font)
+                    group_layout = QVBoxLayout()
+
+                    for sub_key, sub_value in value.items():
+                        group_layout.addWidget(QLabel(f"- {sub_key}: {sub_value}"))
+
+                    # Add spacer below the buttons
+                    spacer_item = QSpacerItem(120, 120, QSizePolicy.Minimum, QSizePolicy.Expanding)
+                    group_layout.addItem(spacer_item)
+                    group_box_pin_sub.setLayout(group_layout)
+                    self.group_box_pin_layout.addWidget(group_box_pin_sub)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Exception Error: {str(e)}")
+        self.request_button.setEnabled(True)
+
+    def refresh_pin_status_labels_load(self):
+        try:
+            while self.group_box_pin_layout.count() > 0:
+                widget = self.group_box_pin_layout.takeAt(0)
+                if widget.widget():
+                    widget.widget().deleteLater()
+            for key, value in self.data_pin_status.items():
+                if isinstance(value, dict):
+                    group_box_pin_sub = QGroupBox(key)
+                    group_box_pin_sub.setFont(group_box_title_font)
+                    group_layout = QVBoxLayout()
+
+                    for sub_key, sub_value in value.items():
+                        group_layout.addWidget(QLabel(f"- {sub_key}: {sub_value}"))
+
+                    # Add spacer below the buttons
+                    spacer_item = QSpacerItem(120, 120, QSizePolicy.Minimum, QSizePolicy.Expanding)
+                    group_layout.addItem(spacer_item)
+                    group_box_pin_sub.setLayout(group_layout)
+                    self.group_box_pin_layout.addWidget(group_box_pin_sub)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Exception Error: {str(e)}")
+
     def load_button_pin_clicked(self):
-        print("data loaded")
+        file_path, _ = QFileDialog.getOpenFileName(self, 'Open File', '', 'json files (*.json)')
+        if file_path:
+            with open(file_path, 'r') as file:
+                try:
+                    self.data_pin_status = json.load(file)
+                    self.refresh_pin_status_labels_load()
+                    QMessageBox.information(self, "Success", "Loading Pin Status successfully!")
+                except Exception as e:
+                    QMessageBox.information(self, "Loading Error", f"Exception Error: {str(e)}")
 
-    def request_button_clicked(self):
-        print("request button clicked!")
+    '''=========================== Thread Functions ======================='''
 
-    def auto_request_button_clicked(self):
-        print("auto request button clicked!")
-        current_text = self.auto_request_button.text()
-        if current_text == "Run":
-            print("sending Request is running!")
-            self.auto_request_button.setText("Stop")
-        if current_text == "Stop":
-            print("sending Request is stop!")
-            self.auto_request_button.setText("Run")
+    def save_button_config_thread(self):
+        thread = threading.Thread(target=self.save_button_config_clicked())
+        thread.start()
+
+    def load_button_config_thread(self):
+        thread = threading.Thread(target=self.load_button_config_clicked())
+        thread.start()
+
+    def refresh_button_thread(self):
+        thread = threading.Thread(target=self.refresh_button_clicked())
+        thread.start()
+
+    def submit_button_config_thread(self):
+        if self.combo_box.currentText() != "":
+            try:
+                self.save_data_json()
+                if self.serial_port is not None:
+                    self.serial_communication_config = SerialCommunicationConfig(self.serial_port, message=self.data)
+                    self.serial_communication_config.start()
+                    self.submit_button_config.setEnabled(False)
+                    self.serial_communication_config.finished.connect(self.submit_button_config_thread_finished)
+                else:
+                    port = str(self.combo_box.currentText())
+                    baud_rate = 115200
+                    self.serial_port = serial.Serial(port, baud_rate)
+                    self.serial_communication_config = SerialCommunicationConfig(self.serial_port, message=self.data)
+                    self.serial_communication_config.start()
+                    self.submit_button_config.setEnabled(False)
+                    self.serial_communication_config.finished.connect(self.submit_button_config_thread_finished)
+            except serial.SerialException as e:
+                QMessageBox.information(self, "Serial Error", f"Serial Exception Error: {str(e)}")
+            except Exception as e:
+                QMessageBox.information(self, "Error", f"Exception Error: {str(e)}")
+        else:
+            QMessageBox.warning(self, "Error", "Please select COM port")
+
+    def submit_button_config_thread_finished(self):
+        self.submit_button_config.setEnabled(True)
+        QMessageBox.information(self, "Finished", "Processed Finished successfully!")
+
+    def save_button_pin_thread(self):
+        thread = threading.Thread(target=self.save_button_pin_clicked())
+        thread.start()
+
+    def load_button_pin_thread(self):
+        thread = threading.Thread(target=self.load_button_pin_clicked())
+        thread.start()
+
+    def request_button_thread(self):
+        if self.combo_box.currentText() != "":
+            self.request_button.setEnabled(False)
+            try:
+                del self.serial_port
+                request_message = {"cn_m": "pin_status"}
+                port = str(self.combo_box.currentText())
+                baud_rate = 115200
+                self.serial_port = serial.Serial(port, baud_rate)
+                self.serial_communication = SerialCommunicationPinStatus(self.serial_port, message=request_message,
+                                                                         loop_request=False, request_time=0,
+                                                                         communication_delay=self.delay_time.text())
+                self.serial_communication.resultReady.connect(self.refresh_pin_status_labels_serial_port)
+                self.serial_communication.start()
+                self.serial_communication.finished.connect(self.request_button_thread_finished)
+            except Exception as e:
+                QMessageBox.information(self, "Requesting", f"Exception Error: {str(e)}")
+                self.request_button.setEnabled(True)
+        else:
+            QMessageBox.warning(self, "Error", "Please select COM port")
+            self.request_button.setEnabled(True)
+
+    def request_button_thread_finished(self):
+        self.serial_communication.cancel()
+        self.request_button.setEnabled(True)
+        QMessageBox.information(self, "Finished", "Processed Finished successfully!")
+
+    def auto_request_button_run_thread(self):
+        try:
+            request_time = int(self.auto_request_time.text())
+            if self.combo_box.currentText() != "":
+                if request_time >= 5:
+                    self.auto_request_button_run.setEnabled(False)
+                    self.auto_request_button_stop.setEnabled(True)
+                    try:
+                        del self.serial_port
+                        request_message = {"cn_m": "pin_status"}
+                        port = str(self.combo_box.currentText())
+                        baud_rate = 115200
+                        self.serial_port = serial.Serial(port, baud_rate)
+                        self.serial_communication = SerialCommunicationPinStatus(self.serial_port,
+                                                                                 message=request_message,
+                                                                                 loop_request=True,
+                                                                                 request_time=request_time)
+                        self.serial_communication.resultReady.connect(self.refresh_pin_status_labels_serial_port)
+                        self.serial_communication.start()
+                        self.serial_communication.finished.connect(self.request_button_thread_finished)
+                    except Exception as e:
+                        QMessageBox.information(self, "Requesting", f"Exception Error: {str(e)}")
+                else:
+                    QMessageBox.warning(self, "Invalid time", "Minimum Request time is : 5 Seconds")
+            else:
+                QMessageBox.warning(self, "COM Port", "Please select COM Port")
+        except Exception as e:
+            QMessageBox.warning(self, "Invalid time", f"Exception Error: {str(e)}")
+
+    def auto_request_button_stop_thread(self):
+        self.serial_communication.cancel()
+        self.auto_request_button_run.setEnabled(True)
+        self.auto_request_button_stop.setEnabled(False)
+
+    def closeEvent(self, event):
+        self.serial_port.close()
+        event.accept()
+
+
+class SerialCommunicationPinStatus(QThread):
+    resultReady = pyqtSignal(str)
+    finished = pyqtSignal()
+
+    def __init__(self, serial_port, message, loop_request, request_time, communication_delay):
+        super().__init__()
+        self.serial_port = serial_port
+        self.is_running = True
+        self.loop_request = loop_request
+        self.request_time = request_time
+        self.message = message
+        self.communication_delay = communication_delay
+
+    def run(self):
+        if self.loop_request:
+            while self.is_running:
+                # Send the connection mode to the serial port
+                self.serial_port.write((json.dumps(self.message) + '\n').encode())
+                time.sleep(self.communication_delay)
+                # Receive and process the pin status from the serial port
+                pin_status = self.serial_port.readline().decode().strip()
+                # Emit the pin status
+                self.resultReady.emit(pin_status)
+                time.sleep(self.request_time)
+            self.finished.emit()
+
+        else:
+            # Send the connection mode to the serial port
+            self.serial_port.write((json.dumps(self.message) + '\n').encode())
+
+            # Wait for some time to receive the pin status
+            time.sleep(self.communication_delay)
+
+            # Receive and process the pin status from the serial port
+            pin_status = self.serial_port.readline().decode().strip()
+            # Emit the pin status
+            self.resultReady.emit(pin_status)
+            self.finished.emit()
+
+    def cancel(self):
+        self.is_running = False
+
+
+class SerialCommunicationConfig(QThread):
+    finished = pyqtSignal()
+
+    def __init__(self, serial_port, message):
+        super().__init__()
+        self.serial_port = serial_port
+        self.message = message
+
+    def run(self):
+        print(json.dumps(self.message))
+        self.serial_port.write((json.dumps(self.message) + '\n').encode())
+        time.sleep(0.1)
+        received_message = self.serial_port.readline().decode().strip()
+        self.finished.emit()
 
 
 if __name__ == "__main__":

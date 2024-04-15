@@ -1,50 +1,107 @@
 import sys
-import json
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QGroupBox, QLabel
+import time
+import serial
+from PyQt5.QtCore import QThread, pyqtSignal, Qt
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QMessageBox, QLabel
 
-# Example JSON string
-json_str = '''{
-  "cn_m": "pin_status",
-  "digital_in": {
-    "di1": "1",
-    "di2": "0"
-  },
-  "digital_out": {
-    "do1": "0",
-    "do2": "0"
-  },
-  "analog_in": {
-    "ai_1": "1022"
-    }
-}'''
+# Worker thread for background process
+class Worker(QThread):
+    resultReady = pyqtSignal(str)
+    finished = pyqtSignal()
 
-class JSONViewer(QWidget):
+    def __init__(self, serial_port, connection_mode):
+        super().__init__()
+        self.serial_port = serial_port
+        self.connection_mode = connection_mode
+        self.is_running = True
+
+    def run(self):
+        while self.is_running:
+            # Send the connection mode to the serial port
+            self.serial_port.write(self.connection_mode.encode())
+
+            # Wait for some time to receive the pin status
+            time.sleep(2)
+
+            # Receive and process the pin status from the serial port
+            pin_status = self.serial_port.readline().decode().strip()
+
+            if self.is_running:
+                # Emit the pin status
+                self.resultReady.emit(pin_status)
+
+        self.finished.emit()
+
+    def cancel(self):
+        self.is_running = False
+
+# Main window class
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("JSON Viewer")
 
-        layout = QVBoxLayout()
-        self.setLayout(layout)
+        # Create a serial port
+        self.serial_port = serial.Serial('COM6', 115200)
 
-        # Parse JSON string into a Python data structure (dictionary)
-        data = json.loads(json_str)
+        self.initUI()
 
-        if "digital_in" in data:
-            digital_in_data = data["digital_in"]
+    def initUI(self):
+        self.setWindowTitle('Serial Port Example')
+        self.setGeometry(300, 300, 250, 150)
 
-            group_box = QGroupBox("digital_in")
-            group_layout = QVBoxLayout()
-            group_box.setLayout(group_layout)
+        # Button
+        self.button = QPushButton('Stop', self)
+        self.button.setGeometry(40, 50, 100, 30)
+        self.button.clicked.connect(self.stopSending)
 
-            for key, value in digital_in_data.items():
-                label = QLabel(f"{key}: {value}")
-                group_layout.addWidget(label)
+        # Label to display the pin status
+        self.pinStatusLabel = QLabel(self)
+        self.pinStatusLabel.setGeometry(40, 100, 210, 30)
+        self.pinStatusLabel.setAlignment(Qt.AlignCenter)
 
-            layout.addWidget(group_box)
+        self.worker = None
+        self.is_sending = False
 
-        self.show()
+    def startSending(self):
+        self.button.setText('Stop')
+        self.is_sending = True
 
-if __name__ == "__main__":
+        # Connection mode to be sent to the serial port
+        connection_mode = 'PIN_STATUS'
+
+        self.worker = Worker(self.serial_port, connection_mode)
+        self.worker.resultReady.connect(self.displayPinStatus)
+        self.worker.finished.connect(self.processFinished)
+        self.worker.start()
+
+    def stopSending(self):
+        self.button.setEnabled(False)  # Disable the button during the stopping process
+
+        if self.worker is not None and self.worker.isRunning():
+            self.worker.cancel()
+            self.worker.finished.connect(self.processStopped)
+
+    def processStopped(self):
+        self.button.setEnabled(True)  # Enable the button after the stopping process completes
+
+        # Show a message box to indicate that the process has stopped
+        QMessageBox.information(self, 'Process Stopped', 'Sending requests has been stopped.')
+
+    def displayPinStatus(self, pin_status):
+        # Display the pin status in the label
+        self.pinStatusLabel.setText(f'Pin Status: {pin_status}')
+
+    def processFinished(self):
+        # Show a message box to indicate that the process has finished
+        QMessageBox.information(self, 'Process Finished', 'Pin status received successfully.')
+
+    def closeEvent(self, event):
+        # Close the serial port when the application is closed
+        self.serial_port.close()
+        event.accept()
+
+if __name__ == '__main__':
     app = QApplication(sys.argv)
-    viewer = JSONViewer()
+    window = MainWindow()
+    window.show()
     sys.exit(app.exec_())
